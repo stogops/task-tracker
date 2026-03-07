@@ -17,14 +17,14 @@ HTML_TEMPLATE = '''
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans antialiased p-6">
     <div class="max-w-3xl mx-auto">
-        <h1 class="text-3xl font-bold mb-6 text-indigo-600">Task Tracker</h1>
+        <h1 class="text-3xl font-bold mb-6 text-blue-600">Task Tracker</h1>
         
         <div class="bg-white shadow-md rounded-lg p-6 mb-8">
             <h2 class="text-xl font-semibold mb-4">Add New Task</h2>
             <div class="flex flex-col md:flex-row gap-4">
-                <input type="text" id="taskName" placeholder="Task description..." class="flex-1 border-gray-300 border rounded-md p-2 focus:ring focus:ring-indigo-200 focus:outline-none">
-                <input type="text" id="assigneeId" placeholder="Operative ID..." class="flex-1 border-gray-300 border rounded-md p-2 focus:ring focus:ring-indigo-200 focus:outline-none">
-                <button onclick="addTask()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition">Add Task</button>
+                <input type="text" id="taskName" placeholder="Task description..." class="flex-1 border-gray-300 border rounded-md p-2 focus:ring focus:ring-blue-200 focus:outline-none">
+                <input type="text" id="assigneeId" placeholder="Operative ID..." class="flex-1 border-gray-300 border rounded-md p-2 focus:ring focus:ring-blue-200 focus:outline-none">
+                <button onclick="addTask()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">Add Task</button>
             </div>
             <p id="errorMsg" class="text-red-500 mt-2 hidden text-sm"></p>
         </div>
@@ -61,7 +61,7 @@ HTML_TEMPLATE = '''
                             <p class="text-sm text-gray-600">Assigned to: <span class="font-medium text-gray-800">${task.assignee}</span></p>
                         </div>
                         <div class="flex items-center gap-2">
-                            <select onchange="updateTask(${task.id}, this.value, '${task.assignee}', '${task.name}')" class="border-gray-300 border rounded-md p-1 text-sm focus:outline-none focus:ring focus:ring-indigo-200">
+                            <select onchange="updateTask(${task.id}, this.value, '${task.assignee}', '${task.name}')" class="border-gray-300 border rounded-md p-1 text-sm focus:outline-none focus:ring focus:ring-blue-200">
                                 ${statusOptions}
                             </select>
                             <button onclick="deleteTask(${task.id})" class="text-red-500 hover:text-red-700 px-2 py-1 bg-red-50 rounded-md transition text-sm">Delete</button>
