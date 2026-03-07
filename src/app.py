@@ -6,43 +6,54 @@ app = Flask(__name__)
 
 DATA_FILE = '/data/tasks.json'
 
-# Default workstreams definition
-WORKSTREAMS = [
-    {"id": "tasktracker", "title": "Task Tracker"},
-    {"id": "development", "title": "Development"},
-    {"id": "operations", "title": "Operations"}
-]
 
-def load_tasks():
+def load_data():
+    global tasks, task_id_counter, workstreams
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, 'r') as f:
                 data = json.load(f)
-                loaded_tasks = data.get('tasks', [])
-                counter = data.get('counter', 1)
+                tasks = data.get('tasks', [])
+                task_id_counter = data.get('counter', 1)
+                workstreams = data.get('workstreams', [
+                    {"id": "tasktracker", "title": "Task Tracker"},
+                    {"id": "development", "title": "Development"},
+                    {"id": "operations", "title": "Operations"}
+                ])
                 
                 # Migration: Ensure every existing task has a workstream_id
-                for task in loaded_tasks:
+                for task in tasks:
                     if 'workstream_id' not in task:
                         task['workstream_id'] = "tasktracker"
                 
-                return loaded_tasks, counter
-        except Exception:
-            pass
-    return [], 1
+                return
+        except Exception as e:
+            print(f"Error loading data: {e}")
+    
+    tasks = []
+    task_id_counter = 1
+    workstreams = [
+        {"id": "tasktracker", "title": "Task Tracker"},
+        {"id": "development", "title": "Development"},
+        {"id": "operations", "title": "Operations"}
+    ]
 
-def save_tasks():
+def save_data():
     try:
         os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
         with open(DATA_FILE, 'w') as f:
-            json.dump({'tasks': tasks, 'counter': task_id_counter}, f)
+            json.dump({
+                'tasks': tasks, 
+                'counter': task_id_counter,
+                'workstreams': workstreams
+            }, f)
     except Exception as e:
-        print(f"Error saving tasks: {e}")
+        print(f"Error saving data: {e}")
 
-tasks, task_id_counter = load_tasks()
+load_data()
 
-HTML_TEMPLATE = '''
-<!DOCTYPE html>
+
+HTML_TEMPLATE = '''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -52,30 +63,89 @@ HTML_TEMPLATE = '''
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans antialiased p-6">
     <div class="max-w-4xl mx-auto">
-        <h1 class="text-3xl font-bold mb-6 text-blue-600">Task Tracker</h1>
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+            <h1 class="text-3xl font-bold text-blue-600">Task Tracker</h1>
+            <nav class="flex bg-white shadow-sm rounded-lg p-1">
+                <button id="navTasks" onclick="showView('tasks')" class="px-4 py-2 rounded-md transition font-medium bg-blue-600 text-white">Tasks</button>
+                <button id="navWorkstreams" onclick="showView('workstreams')" class="px-4 py-2 rounded-md transition font-medium text-gray-600 hover:bg-gray-100">Workstreams</button>
+            </nav>
+        </div>
         
-        <!-- Add Task Form -->
-        <div class="bg-white shadow-md rounded-lg p-6 mb-8">
-            <h2 class="text-xl font-semibold mb-4">Add New Task</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <input type="text" id="taskName" placeholder="Task description..." class="border-gray-300 border rounded-md p-2 focus:ring focus:ring-blue-200 focus:outline-none">
-                <input type="text" id="assigneeId" placeholder="Operative ID..." class="border-gray-300 border rounded-md p-2 focus:ring focus:ring-blue-200 focus:outline-none">
-                <select id="workstreamSelect" class="border-gray-300 border rounded-md p-2 focus:ring focus:ring-blue-200 focus:outline-none">
-                    <!-- Options populated by JS -->
-                </select>
-                <button onclick="addTask()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">Add Task</button>
+        <!-- Tasks View -->
+        <div id="tasksView">
+            <!-- Add Task Form -->
+            <div class="bg-white shadow-md rounded-lg p-6 mb-8">
+                <h2 class="text-xl font-semibold mb-4">Add New Task</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <input type="text" id="taskName" placeholder="Task description..." class="border-gray-300 border rounded-md p-2 focus:ring focus:ring-blue-200 focus:outline-none">
+                    <input type="text" id="assigneeId" placeholder="Operative ID..." class="border-gray-300 border rounded-md p-2 focus:ring focus:ring-blue-200 focus:outline-none">
+                    <select id="workstreamSelect" class="border-gray-300 border rounded-md p-2 focus:ring focus:ring-blue-200 focus:outline-none">
+                        <!-- Options populated by JS -->
+                    </select>
+                    <button onclick="addTask()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">Add Task</button>
+                </div>
+                <p id="errorMsg" class="text-red-500 mt-2 hidden text-sm"></p>
             </div>
-            <p id="errorMsg" class="text-red-500 mt-2 hidden text-sm"></p>
+
+            <!-- Task List Grouped by Workstream -->
+            <div id="workstreamContainers" class="space-y-8"></div>
         </div>
 
-        <!-- Task List Grouped by Workstream -->
-        <div id="workstreamContainers" class="space-y-8"></div>
+        <!-- Workstreams View -->
+        <div id="workstreamsView" class="hidden">
+            <!-- Add Workstream Form -->
+            <div class="bg-white shadow-md rounded-lg p-6 mb-8">
+                <h2 class="text-xl font-semibold mb-4">Add New Workstream</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <input type="text" id="wsId" placeholder="Workstream ID (e.g. ws-1)..." class="border-gray-300 border rounded-md p-2 focus:ring focus:ring-blue-200 focus:outline-none">
+                    <input type="text" id="wsTitle" placeholder="Workstream Title..." class="border-gray-300 border rounded-md p-2 focus:ring focus:ring-blue-200 focus:outline-none">
+                    <button onclick="addWorkstream()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">Add Workstream</button>
+                </div>
+                <p id="wsErrorMsg" class="text-red-500 mt-2 hidden text-sm"></p>
+            </div>
+
+            <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="wsListTable" class="bg-white divide-y divide-gray-200">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <script>
         const STATUSES = ['todo', 'in-progress', 'done'];
         let workstreams = [];
         
+        function showView(view) {
+            const tasksView = document.getElementById('tasksView');
+            const wsView = document.getElementById('workstreamsView');
+            const navTasks = document.getElementById('navTasks');
+            const navWorkstreams = document.getElementById('navWorkstreams');
+
+            if (view === 'tasks') {
+                tasksView.classList.remove('hidden');
+                wsView.classList.add('hidden');
+                navTasks.className = 'px-4 py-2 rounded-md transition font-medium bg-blue-600 text-white';
+                navWorkstreams.className = 'px-4 py-2 rounded-md transition font-medium text-gray-600 hover:bg-gray-100';
+                fetchTasks();
+            } else {
+                tasksView.classList.add('hidden');
+                wsView.classList.remove('hidden');
+                navTasks.className = 'px-4 py-2 rounded-md transition font-medium text-gray-600 hover:bg-gray-100';
+                navWorkstreams.className = 'px-4 py-2 rounded-md transition font-medium bg-blue-600 text-white';
+                renderWorkstreamManagement();
+            }
+        }
+
         async function fetchWorkstreams() {
             const res = await fetch('/api/workstreams');
             workstreams = await res.json();
@@ -85,6 +155,51 @@ HTML_TEMPLATE = '''
             select.innerHTML = workstreams.map(ws => 
                 `<option value="${ws.id}">${ws.title}</option>`
             ).join('');
+
+            renderWorkstreamManagement();
+        }
+
+        function renderWorkstreamManagement() {
+            const tableBody = document.getElementById('wsListTable');
+            tableBody.innerHTML = workstreams.map(ws => `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500">${ws.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">${ws.title}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button onclick="deleteWorkstream('${ws.id}')" class="text-red-600 hover:text-red-900 px-3 py-1 bg-red-50 rounded-md transition">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function addWorkstream() {
+            const id = document.getElementById('wsId').value.trim();
+            const title = document.getElementById('wsTitle').value.trim();
+            const errorMsg = document.getElementById('wsErrorMsg');
+
+            if(!id || !title) {
+                errorMsg.textContent = 'Both ID and Title are required.';
+                errorMsg.classList.remove('hidden');
+                return;
+            }
+            errorMsg.classList.add('hidden');
+
+            await fetch('/api/workstreams', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ id, title })
+            });
+
+            document.getElementById('wsId').value = '';
+            document.getElementById('wsTitle').value = '';
+            await fetchWorkstreams();
+        }
+
+        async function deleteWorkstream(id) {
+            if(confirm("Deleting a workstream will leave its tasks without a category. Proceed?")) {
+                await fetch(`/api/workstreams/${id}`, { method: 'DELETE' });
+                await fetchWorkstreams();
+            }
         }
 
         async function fetchTasks() {
@@ -187,11 +302,9 @@ HTML_TEMPLATE = '''
         }
 
         async function updateTask(id, updates) {
-            // Get current task data first to ensure we don't overwrite with nulls
             const res = await fetch('/api/tasks');
             const allTasks = await res.json();
             const task = allTasks.find(t => t.id === id);
-            
             const payload = { ...task, ...updates };
 
             await fetch(`/api/tasks/${id}`, {
@@ -209,7 +322,6 @@ HTML_TEMPLATE = '''
             }
         }
 
-        // Initialize
         async function init() {
             await fetchWorkstreams();
             await fetchTasks();
@@ -217,8 +329,7 @@ HTML_TEMPLATE = '''
         init();
     </script>
 </body>
-</html>
-'''
+</html>'''
 
 @app.route('/')
 def index():
@@ -248,7 +359,7 @@ def add_task():
     }
     task_id_counter += 1
     tasks.append(new_task)
-    save_tasks()
+    save_data()
     return jsonify(new_task), 201
 
 @app.route('/api/tasks/<int:task_id>', methods=['PUT'])
@@ -260,7 +371,7 @@ def update_task(task_id):
             task["assignee"] = data.get("assignee", task["assignee"])
             task["status"] = data.get("status", task["status"])
             task["workstream_id"] = data.get("workstream_id", task["workstream_id"])
-            save_tasks()
+            save_data()
             return jsonify(task)
     return jsonify({"error": "Task not found"}), 404
 
@@ -270,9 +381,44 @@ def delete_task(task_id):
     for task in tasks:
         if task["id"] == task_id:
             tasks = [t for t in tasks if t["id"] != task_id]
-            save_tasks()
+            save_data()
             return jsonify({"success": True}), 200
     return jsonify({"error": "Task not found"}), 404
+
+
+@app.route('/api/workstreams', methods=['GET'])
+def get_workstreams():
+    return jsonify(workstreams)
+
+@app.route('/api/workstreams', methods=['POST'])
+def add_workstream():
+    data = request.json
+    if not data or 'id' not in data or 'title' not in data:
+        return jsonify({"error": "Missing required fields: id, title"}), 400
+    
+    # Check if id already exists
+    if any(ws['id'] == data['id'] for ws in workstreams):
+        return jsonify({"error": "Workstream ID already exists"}), 400
+        
+    new_ws = {
+        "id": data['id'],
+        "title": data['title']
+    }
+    workstreams.append(new_ws)
+    save_data()
+    return jsonify(new_ws), 201
+
+@app.route('/api/workstreams/<ws_id>', methods=['DELETE'])
+def delete_workstream(ws_id):
+    global workstreams, tasks
+    # Don't allow deleting the last workstream or 'tasktracker' if we want to be safe, 
+    # but the requirement says create and delete.
+    
+    workstreams = [ws for ws in workstreams if ws['id'] != ws_id]
+    # Delete associated tasks
+    tasks = [t for t in tasks if t.get('workstream_id') != ws_id]
+    save_data()
+    return jsonify({"success": True}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
