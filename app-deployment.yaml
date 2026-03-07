@@ -1,7 +1,11 @@
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/instance: task-tracker
+    app.kubernetes.io/managed-by: operative
+    app.kubernetes.io/name: task-tracker
   name: task-tracker
   namespace: os-stogops-wrk
 spec:
@@ -9,19 +13,22 @@ spec:
   selector:
     matchLabels:
       app: task-tracker
+      app.kubernetes.io/component: backend
+      app.kubernetes.io/instance: task-tracker
+      app.kubernetes.io/managed-by: operative
+      app.kubernetes.io/name: task-tracker
   template:
     metadata:
       labels:
         app: task-tracker
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/instance: task-tracker
+        app.kubernetes.io/managed-by: operative
+        app.kubernetes.io/name: task-tracker
     spec:
-      runtimeClassName: gvisor
-      securityContext:
-        runAsNonRoot: true
-        seccompProfile:
-          type: RuntimeDefault
       containers:
-      - name: task-tracker
-        image: us-central1-docker.pkg.dev/operative-001/os-stogops/os/stogops/task-tracker:latest
+      - image: us-central1-docker.pkg.dev/operative-001/os-stogops/os/stogops/task-tracker:latest
+        name: task-tracker
         ports:
         - containerPort: 8080
         securityContext:
@@ -29,3 +36,16 @@ spec:
           capabilities:
             drop:
             - ALL
+        volumeMounts:
+        - mountPath: /data
+          name: task-data
+      runtimeClassName: gvisor
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+      - name: task-data
+        persistentVolumeClaim:
+          claimName: task-tracker-pvc

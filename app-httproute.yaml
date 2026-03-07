@@ -1,16 +1,20 @@
-
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
+  labels:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/instance: task-tracker
+    app.kubernetes.io/managed-by: operative
+    app.kubernetes.io/name: task-tracker
   name: task-tracker-route
   namespace: os-stogops-wrk
 spec:
+  hostnames:
+  - tasks.stogops.a0.operativeapp.com
   parentRefs:
   - name: appgw-stogops-apps
     namespace: envoy-gateway-system
     sectionName: http
-  hostnames:
-  - "tasks.stogops.a0.operativeapp.com"
   rules:
   - backendRefs:
     - name: task-tracker-svc
