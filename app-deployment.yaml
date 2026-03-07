@@ -14,8 +14,18 @@ spec:
       labels:
         app: task-tracker
     spec:
+      runtimeClassName: gvisor
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: task-tracker
         image: us-central1-docker.pkg.dev/operative-001/os-stogops/os/stogops/task-tracker:latest
         ports:
         - containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
